@@ -1,31 +1,35 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
+from torch.utils.data import Subset
 
 
 # 定义数据加载函数
-def load_data():
+def load_data(num_clients,test):
     # 数据预处理：将图片转换为张量并归一化
     transform = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
     ])
 
-    # 加载CIFAR-10训练集
-    trainset = torchvision.datasets.CIFAR10(root='.\\data\\CIFAR10',
-                                            train=True,
-                                            download=True, transform=transform)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=100,
-                                              shuffle=True, num_workers=2)
+    if (test==True):
+        testset = torchvision.datasets.CIFAR10(root='.\\data\\CIFAR10', train=False,download=True, transform=transform)
+        testloader = torch.utils.data.DataLoader(testset, batch_size=100,shuffle=True, num_workers=2)
+        return testloader
+    else:
+        trainset = torchvision.datasets.CIFAR10(root='.\\data\\CIFAR10',train=False,download=True, transform=transform)
+        # 将数据集随机划分为 num_clients 份
+        data_per_client = len(trainset)//num_clients
+        indices = torch.randperm(len(trainset))   #对长度为 len(trainset) 的序列进行随机排列，返回包含这些随机排列索引的张量
+        client_datasets = []
+        for i in range(num_clients):
+            #从 indices 中选出的部分索引来确定一个客户端（或数据子集）应当获取的样本。
+            client_indices = indices[i * data_per_client:(i + 1) * data_per_client]
+            client_subset = Subset(trainset, client_indices)
+            client_dataloader = torch.utils.data.DataLoader(client_subset, batch_size=100, shuffle=True, num_workers=2)
+            client_datasets.append(client_dataloader)
 
-    # 加载CIFAR-10测试集
-    testset = torchvision.datasets.CIFAR10(root='.\\data\\CIFAR10',
-                                           train=False,
-                                           download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=100,
-                                             shuffle=False, num_workers=2)
-
-    return trainloader, testloader  # 返回训练集和测试集的数据加载器
+        return client_datasets
 
 
 # 定义测试全局模型的函数

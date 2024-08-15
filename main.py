@@ -9,14 +9,14 @@ from utils.data_utils import load_data, test_model
 
 def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # 加载训练集和测试集数据
-    trainloader, testloader = load_data()
-
 
     num_clients = 20            # 设置客户端数量
     num_selected_clients=5      #每轮训练选择的客户端数量
-    rounds=10                   #训练轮次
+    rounds=10                 #训练轮次
     epochs=2                    #每轮训练的迭代次数为为2
+
+    client_datasets = load_data(num_clients,False)
+
 
     # 初始化全局模型
     global_model = Net().to(device)
@@ -32,7 +32,7 @@ def main():
             local_model.load_state_dict(global_model.state_dict())
 
             # 客户端进行本地训练，并返回训练后的模型参数
-            client_state_dict = local_train(local_model, trainloader,epochs,device)
+            client_state_dict = local_train(local_model, client_datasets[client], epochs, device)
             client_models.append(client_state_dict)
 
         # 服务器端聚合所有客户端的模型参数，更新全局模型
@@ -41,6 +41,8 @@ def main():
         print(f"Round {round + 1} complete")  # 打印当前轮次完成的信息
 
     # 训练完成后，用测试集测试最终的全局模型
+    # 测试最终的全局模型
+    testloader = load_data(num_clients,True)
     test_model(global_model, testloader,device)
 
 if __name__ == "__main__":
